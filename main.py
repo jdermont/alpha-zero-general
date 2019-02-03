@@ -4,8 +4,8 @@ from paper_soccer.pytorch.NNet import NNetWrapper as nn
 from utils import *
 
 args = dotdict({
-    'numIters': 1000,
-    'numEps': 100,
+    'numIters': 100,
+    'numEps': 20,
     'tempThreshold': 15,
     'updateThreshold': 0.55,
     'maxlenOfQueue': 200000,
