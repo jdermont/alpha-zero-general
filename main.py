@@ -1,3 +1,8 @@
+from Coach import Coach
+from paper_soccer.PaperSoccerGame import PaperSoccerGame as Game
+from paper_soccer.pytorch.NNet import NNetWrapper as nn
+from utils import *
+
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
