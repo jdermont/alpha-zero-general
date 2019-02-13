@@ -1,6 +1,9 @@
 import numpy as np
 class Board():
     def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
         w = width+1
         h = height+1
         wh = w*h
@@ -159,6 +162,12 @@ class Board():
             
     def passNext(self,index):
         return (self.matrixNodes[index]&0x0F) < (self.matrixNodes[index]>>4)
+
+    def exactlyOne(self,index):
+        return (self.matrixNodes[index]&0x0F) == (self.matrixNodes[index]>>4)-1
+
+    def exactlyOneForGoal(self,index):
+        return (self.matrixNodes[index]&0x0F) == (self.matrixNodes[index]>>4)-3
    
     def isAlmostBlocked(self,index):
         return (self.matrixNodes[index]&0x0F) <= 1
@@ -244,28 +253,81 @@ class Board():
         return moves
     
     def getMatrix(self):
-        matrix = np.copy(self.matrix)
-        matrix[0][2] = self.ball
-        return matrix
+        matrix = [[0 for _ in range(2*self.width+1)] for _ in range(2*self.height+5)]
+        for edge in self.getEdges():
+            a = edge[0]
+            b = edge[1]
+
+            if a[0] < b[0]:
+                if a[1] > b[1]:
+                    x = 2 * b[0]
+                    y = 2 * b[1] + 2
+                    matrix[y][x] = 1
+                else:
+                    x = (2 * a[0] + 2 * b[0]) // 2
+                    y = (2 * a[1] + 2 * b[1]) // 2 + 2
+                    matrix[y][x] = 1
+            elif b[0] < a[0]:
+                if b[1] > a[1]:
+                    x = 2 * a[0]
+                    y = 2 * a[1] + 2
+                    matrix[y][x] = 1
+                else:
+                    x = (2 * a[0] + 2 * b[0]) // 2
+                    y = (2 * a[1] + 2 * b[1]) // 2 + 2
+                    matrix[y][x] = 1
+            else:
+                x = (2 * a[0] + 2 * b[0]) // 2
+                y = (2 * a[1] + 2 * b[1]) // 2 + 2
+                matrix[y][x] = 1
+        return np.copy(matrix)
+
+    def getIndexByPosition(self,x,y):
+        for i in range(self.size):
+            mx = (self.matrix[i][i]>>8) & 0xFF;
+            my = self.matrix[i][i] & 0xFF
+            if my == 0xFF: my = -1;
+            if x == mx and y == my:
+                return i
     
     def setMatrix(self,matrix):
-        self.matrix = [[0 for _ in range(self.size)] for _ in range(self.size)]
-        for i in range(self.size):
-            for j in range(self.size):
-                self.matrix[i][j] = int(matrix[i][j])
-        #self.matrix = np.copy(matrix)
-        self.matrixNeighbours = [[] for _ in range(self.size)]
-        self.matrixNodes = [0] * self.size
-        self.ball = self.matrix[0][2]
-        self.matrix[0][2] = 0
-        for i in range(self.size):
-            for j in range(self.size):
-                if i == j: 
-                    continue
-                if self.matrix[i][j] > 0:
-                    self.matrixNeighbours[i].append(j)
-                    self.matrixNodes[i] += 1<<4
-                    if self.matrix[i][j] == 1: self.matrixNodes[i] += 1 
+        for x in range(2*self.width+1):
+            for y in range(2*self.height+5):
+                if matrix[y][x] == 1:
+                    if x % 2 == 0 and y % 2 == 0:
+                        i = self.getIndexByPosition(x // 2 - 1, (y - 2) // 2 + 1)
+                        j = self.getIndexByPosition(x // 2, (y - 2) // 2)
+                        if (self.matrix[i][j] & 2) == 0: self.addEdge(i,j)
+                    elif x % 2 == 1 and y % 2 == 0:
+                        i = self.getIndexByPosition((x-1)//2, (y-2)//2)
+                        j = self.getIndexByPosition((x+1)//2, (y-2)//2)
+                        if (self.matrix[i][j] & 2) == 0: self.addEdge(i,j)
+                    elif x % 2 == 0 and y % 2 == 1:
+                        i = self.getIndexByPosition(x//2, (y-2-1)//2)
+                        j = self.getIndexByPosition(x//2, (y-2+1)//2)
+                        if (self.matrix[i][j] & 2) == 0: self.addEdge(i,j)
+                    else:
+                        i = self.getIndexByPosition((x-1)//2, (y-2-1)//2)
+                        j = self.getIndexByPosition((x+1)//2, (y-2+1)//2)
+                        if (self.matrix[i][j] & 2) == 0: self.addEdge(i,j)
+
+        if self.passNext(self.width//2 * (self.height+1) + (self.height+1)//2):
+            for i in range(self.size-6, self.size):
+                if self.exactlyOneForGoal(i):
+                    self.ball = i
+                    return
+            for i in range(self.size):
+                if i == self.width//2 * (self.height+1) + (self.height+1)//2: continue
+                if i > self.size-6: continue
+                if self.exactlyOne(i):
+                    self.ball = i
+                    return
+            for i in range(self.size):
+                if i == self.width//2 * (self.height+1) + (self.height+1)//2: continue
+                if i > self.size-6: continue
+                if self.isBlocked(i):
+                    self.ball = i
+                    return
     
     def getNeighbour(self,dx,dy):
         x, y = self.getPosition(self.ball)
@@ -309,3 +371,12 @@ class Board():
             for j in range(i+1):
                 out += str(matrix[i][j])
         return out
+
+    def getEdges(self):
+        edges = []
+        for i in range(1,self.size):
+            for j in range(i):
+                if (self.matrix[i][j] & 2) > 0:
+                    edge = (self.getPosition(i), self.getPosition(j))
+                    edges.append(edge)
+        return edges

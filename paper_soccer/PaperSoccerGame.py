@@ -30,7 +30,7 @@ class PaperSoccerGame(Game):
         Returns:
             (x,y): a tuple of board dimensions
         """
-        return (41,41)
+        return (9,17)
 
     def getActionSize(self):
         """
