@@ -357,8 +357,12 @@ class Board():
     def getWinner(self, currentPlayer):
         g = self.goalArray[self.ball]
         if g > 0:
-            if g == 1: return -1
-            else: return 1
+            if currentPlayer == 1:
+                if g == 1: return -1
+                return 1
+            else:
+                if g == 1: return 1
+                return -1
         if self.isBlocked(self.ball):
             return -currentPlayer
         return 0
@@ -380,3 +384,4 @@ class Board():
                     edge = (self.getPosition(i), self.getPosition(j))
                     edges.append(edge)
         return edges
+
